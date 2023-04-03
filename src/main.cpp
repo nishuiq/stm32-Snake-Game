@@ -30,8 +30,24 @@ const int HEIGTH = 128;
 volatile int key_state; // 按键值，{0,1,2} = {key_1, key_2, 无操作} 映射谁按的
 
 /* interrupts */
-void KEY1_press() { key_state = 0; }
-void KEY2_press() { key_state = 1; }
+void KEY1_press()
+{
+  static auto KEY1_TIME = millis();
+  auto t = millis();
+  if (t - KEY1_TIME >= 50) {  // Debounce
+    KEY1_TIME = t;
+    key_state = 0;
+  }
+}
+void KEY2_press()
+{
+  static auto KEY2_TIME = millis();
+  auto t = millis();
+  if (t - KEY2_TIME >= 50) {  // Debounce
+    KEY2_TIME = t;
+    key_state = 1; 
+  }
+}
 
 /* body size */
 const int body_x = 8;
@@ -127,7 +143,7 @@ public:
     q_ = std::queue<PII>();
     q_.push(snake_entity_.head);
     map_[snake_entity_.head] = true;
-    draw(snake_entity_.head.first, snake_entity_.head.second, 0, true);
+    draw(snake_entity_.head.first, snake_entity_.head.second, 0);
 
     genered_food();
   }
@@ -143,7 +159,7 @@ public:
       int y = unitheight_(device);
       if (!map_[{x, y}]) {
         snake_entity_.food = {x, y};
-        draw(x, y, 1, true);
+        draw(x, y, 1);
         return;
       }
     }
@@ -152,7 +168,7 @@ public:
       for (int j = 0; j < HEIGTH; ++j) {
         if (!map_[{i, j}]) {
           snake_entity_.food = {i, j};
-          draw(i, j, 1, true);
+          draw(i, j, 1);
           return;
         }
       }
@@ -164,72 +180,73 @@ public:
    * @param key_state key_press direction
    */
   void go(int key_state) {
-    noInterrupts();
+    // noInterrupts();
     /* just go */
     int x = snake_entity_.head.first + diff_[snake_entity_.direction_][key_state][0];
     int y = snake_entity_.head.second + diff_[snake_entity_.direction_][key_state][1];
     /**
      * @bug 当蛇头碰到原先的蛇尾位置时，会判断出错，因为蛇尾此时还未移动
+     * 修复方案：先将蛇尾 map_[{x,y}] = false, 如果没有吃到食物，那就消除该点屏幕；如果吃到，重新置为true，不需要消除屏幕
+     * 同时改进 map 的擦除，因为我们是 20x16 映射的小地图了，不要erase
     */
+
+    auto t = q_.front();
+    map_[t] = false;  // 蛇尾先去掉标识
+
     if (!check_rule(x, y)) {
       is_over_ = true;
     } else {
       auto xy = PII(x, y);
-      auto t = q_.front();
-
       /* change snake head direction */
       snake_entity_.direction_ = snack_toward[snake_entity_.direction_][key_state];
       /* draw snake new head_body */
       q_.push(xy);
       map_[xy] = true;
       snake_entity_.head = xy;
-      draw(x, y, 0, true);
+      draw(x, y, 0);
 
       /* erase snake tail */
       if (xy != snake_entity_.food) {
-        draw(t.first, t.second, -1, false);
-        map_.erase(t);
+        draw(t.first, t.second, -1);
+        // map_[t] = false;    // | improve
         q_.pop();
       } else {
         ++score;
+        map_[t] = true;  // 如果吃到食物，蛇尾不擦除
         genered_food();
       }
     }
-    interrupts();
+    // interrupts();
   }
 
   /**
    * @brief draw point
    * @param x x axist
    * @param y y axist
-   * @param type draw head_body = 0 -> GREEN, food = 1 -> BLUE
-   * @param flag True if draw.
-   * Else erase draw and ignore type.
+   * @param type draw head_body = 0 -> GREEN, food = 1 -> BLUE, -1 erase draw
    */
-  void draw(int x, int y, int type, bool flag) {
+  void draw(int x, int y, int type) {
     x *= body_x;
     y *= body_y;
-    /* Erase old point. Ignore type. */
-    if (!flag) {
+    /* Erase old point. */
+    if (type == -1) {
       TFTscreen_->stroke(0, 0, 0); // WHITE
       TFTscreen_->fill(0, 0, 0);
-    } else {
-      if (type == 0) {
-        /* snake body */
-        TFTscreen_->stroke(0, 139, 0); // GREEN
-        TFTscreen_->fill(0, 139, 0);
-      } else if (type == 1) {
-        /* food */
-        TFTscreen_->stroke(255, 0, 0); // RED
-        TFTscreen_->fill(255, 0, 0);
-      }
+    } else if (type == 0) {
+      /* snake body */
+      TFTscreen_->stroke(0, 139, 0); // GREEN
+      TFTscreen_->fill(0, 139, 0);
+    } else if (type == 1) {
+      /* food */
+      TFTscreen_->stroke(255, 0, 0); // RED
+      TFTscreen_->fill(255, 0, 0);
     }
     TFTscreen_->rect(x, y, body_x, body_y);
   }
 
   bool is_over() { return is_over_; }
 
-  bool is_win() { return score == WIDTH_SIZE * HEIGHT_SIZE - 1; } // WIDTH_SIZE * HEIGHT_SIZE - 1;
+  bool is_win() { return score == WIDTH_SIZE * HEIGHT_SIZE - 1; }
 
   /**
    * @brief True if legal moving.
@@ -243,7 +260,7 @@ public:
   }
 
   /**
-   * @brief head{x,y} food{x,y}
+   * @brief head{x,y}, food{x,y}, snake direction
    */
   struct SnakeEntity {
     PII head;
@@ -256,7 +273,7 @@ private:
   TFT *TFTscreen_;
   /* game dataset */
   bool is_over_;
-  /* check postion T/F empty */
+  /* check position T/F empty */
   std::map<PII, bool> map_;
   /* get tail snake (x,y) */
   std::queue<PII> q_;
@@ -320,9 +337,9 @@ void setup()
 }
 
 /**
- * @brief print "Yow lose!" text to screen
- */
-void game_over()
+ * @brief print RGB text when game win or game lose
+*/
+void game_print(const char* s)
 {
   TFTscreen.textSize(2);
   while (true) {
@@ -333,29 +350,7 @@ void game_over()
 
     // set a random font color
     TFTscreen.stroke(redRandom, greenRandom, blueRandom);
-    TFTscreen.text("You lose!", 10, 62);
-    delay(200);
-    if (key_state != 2) {
-      break;
-    }
-  }
-}
-
-/**
- * @brief print "Yow Win!" text to screen
- */
-void game_win()
-{
-  TFTscreen.textSize(2);
-  while (true) {
-    // generate a random color
-    int redRandom = random(0, 255);
-    int greenRandom = random(0, 255);
-    int blueRandom = random(0, 255);
-
-    // set a random font color
-    TFTscreen.stroke(redRandom, greenRandom, blueRandom);
-    TFTscreen.text("You Win!", 10, 62);
+    TFTscreen.text(s, 10, 62);
     delay(200);
     if (key_state != 2) {
       break;
@@ -416,9 +411,9 @@ void loop()
   }
 
   if (snake.is_over()) {
-    game_over();
+    game_print("You lose!");
   } else {
-    game_win();
+    game_print("You Win!");
   }
 
   delay(1000);
