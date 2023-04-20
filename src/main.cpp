@@ -134,16 +134,16 @@ public:
     /* clean screen */
     TFTscreen_->background(0, 0, 0);
     /* reset data */
-    score = 0;
+    score_ = 0;
     map_.clear();
     is_over_ = false;
     snake_entity_.direction_ = 0;
-    snake_entity_.head = {WIDTH_SIZE / 2, HEIGHT_SIZE / 2};
+    snake_entity_.head_ = {WIDTH_SIZE / 2, HEIGHT_SIZE / 2};
 
     q_ = std::queue<PII>();
-    q_.push(snake_entity_.head);
-    map_[snake_entity_.head] = true;
-    draw(snake_entity_.head.first, snake_entity_.head.second, 0);
+    q_.push(snake_entity_.head_);
+    map_[snake_entity_.head_] = true;
+    draw(snake_entity_.head_.first, snake_entity_.head_.second, 0);
 
     genered_food();
   }
@@ -155,10 +155,10 @@ public:
   void genered_food() {
     /* random */
     for (int miss = 0; miss < 2000; ++miss) {
-      int x = unitwidth_(device);
-      int y = unitheight_(device);
+      int x = unitwidth_(device_);
+      int y = unitheight_(device_);
       if (!map_[{x, y}]) {
-        snake_entity_.food = {x, y};
+        snake_entity_.food_ = {x, y};
         draw(x, y, 1);
         return;
       }
@@ -167,7 +167,7 @@ public:
     for (int i = 0; i < WIDTH; ++i) {
       for (int j = 0; j < HEIGTH; ++j) {
         if (!map_[{i, j}]) {
-          snake_entity_.food = {i, j};
+          snake_entity_.food_ = {i, j};
           draw(i, j, 1);
           return;
         }
@@ -182,8 +182,8 @@ public:
   void go(int key_state) {
     // noInterrupts();
     /* just go */
-    int x = snake_entity_.head.first + diff_[snake_entity_.direction_][key_state][0];
-    int y = snake_entity_.head.second + diff_[snake_entity_.direction_][key_state][1];
+    int x = snake_entity_.head_.first + diff_[snake_entity_.direction_][key_state][0];
+    int y = snake_entity_.head_.second + diff_[snake_entity_.direction_][key_state][1];
     /**
      * @bug 当蛇头碰到原先的蛇尾位置时，会判断出错，因为蛇尾此时还未移动
      * 修复方案：先将蛇尾 map_[{x,y}] = false, 如果没有吃到食物，那就消除该点屏幕；如果吃到，重新置为true，不需要消除屏幕
@@ -198,20 +198,20 @@ public:
     } else {
       auto xy = PII(x, y);
       /* change snake head direction */
-      snake_entity_.direction_ = snack_toward[snake_entity_.direction_][key_state];
+      snake_entity_.direction_ = snack_toward_[snake_entity_.direction_][key_state];
       /* draw snake new head_body */
       q_.push(xy);
       map_[xy] = true;
-      snake_entity_.head = xy;
+      snake_entity_.head_ = xy;
       draw(x, y, 0);
 
       /* erase snake tail */
-      if (xy != snake_entity_.food) {
+      if (xy != snake_entity_.food_) {
         draw(t.first, t.second, -1);
         // map_[t] = false;    // | improve
         q_.pop();
       } else {
-        ++score;
+        ++score_;
         map_[t] = true;  // 如果吃到食物，蛇尾不擦除
         genered_food();
       }
@@ -246,7 +246,7 @@ public:
 
   bool is_over() { return is_over_; }
 
-  bool is_win() { return score == WIDTH_SIZE * HEIGHT_SIZE - 1; }
+  bool is_win() { return score_ == WIDTH_SIZE * HEIGHT_SIZE - 1; }
 
   /**
    * @brief True if legal moving.
@@ -263,8 +263,8 @@ public:
    * @brief head{x,y}, food{x,y}, snake direction
    */
   struct SnakeEntity {
-    PII head;
-    PII food;
+    PII head_;
+    PII food_;
     int direction_;
   };
 
@@ -280,7 +280,7 @@ private:
   /* Sanke data */
   SnakeEntity snake_entity_;
   /* score */
-  int score{0};
+  int score_{0};
 
   /** snake offset
    * 转向 0左 1右 2不变
@@ -298,14 +298,14 @@ private:
    * snacke_direction_next[蛇头状态][转向] --> [得到下一个蛇头状态]
    * [4][] 0左 1右 2不变
    */
-  const int snack_toward[4][3] = {
+  const int snack_toward_[4][3] = {
       {3, 2, 0},
       {2, 3, 1},
       {0, 1, 2},
       {1, 0, 3}};
 
   /* random */
-  std::random_device device;
+  std::random_device device_;
   std::uniform_int_distribution<int> unitwidth_;
   std::uniform_int_distribution<int> unitheight_;
 };
