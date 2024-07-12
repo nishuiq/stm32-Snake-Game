@@ -45,6 +45,12 @@
         "streambuf": "cpp",
         "cinttypes": "cpp",
         "typeinfo": "cpp",
-        "map": "cpp"
-    }
+        "map": "cpp",
+        "queue": "cpp",
+        "compare": "cpp",
+        "concepts": "cpp",
+        "numbers": "cpp",
+        "cstring": "cpp"
+    },
+    "editor.formatOnSave": true
 }
